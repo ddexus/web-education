@@ -55,7 +55,7 @@
         const role = getCookie('role');
         const userId = getCookie('userId');
         if (role !== 'teacher' || !userId) {
-            window.location.href = 'index.html';
+            window.location.href = './index.html';
         }
 
         const teacherDoc = await getDoc(doc(db, 'teachers', userId));
@@ -133,7 +133,7 @@
         document.getElementById('logout').addEventListener('click', () => {
             deleteCookie('role');
             deleteCookie('userId');
-            window.location.href = 'index.html';
+            window.location.href = './index.html';
         });
     </script>
 </body>
