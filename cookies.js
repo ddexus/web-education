@@ -20,5 +20,15 @@ function getCookie(name) {
 }
 
 function deleteCookie(name) {
-    document.cookie = name + '=; Max-Age=-99999999;';
+    const cookies = document.cookie.split(";");
+    
+    for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i];
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        
+        // Удаляем каждый cookie
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=None; Secure";
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;";
+    }
 }
