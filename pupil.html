@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Профиль ученика</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
     <h1>Профиль ученика</h1>
@@ -12,7 +12,7 @@
     <div id="hw"></div>
     <button id="logout">Выйти</button>
 
-    <script src="cookies.js"></script>
+    <script src="./cookies.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -67,7 +67,7 @@
         document.getElementById('logout').addEventListener('click', () => {
             deleteCookie('role');
             deleteCookie('userId');
-            window.location.href = '../index.html';
+            window.location.href = './index.html';
         });
     </script>
 </body>
