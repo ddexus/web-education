@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Профиль учителя</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Профиль учителя</h1>
+    <h2>Ученики группы</h2>
+    <table id="pupilsTable" class="pupils-table" border="1">
+        <thead>
+            <tr>
+                <th>Имя</th>
+                <th>Фамилия</th>
+                <th>Возраст</th>
+                <th>Баллы</th>
+                <th>Невыполненные ДЗ</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <h2>Домашнее задание для группы</h2>
+    <form id="hwForm">
+        <label for="link">Ссылка на ДЗ:</label>
+        <input type="text" id="link" required>
+        <br>
+        <label for="comment">Комментарий:</label>
+        <textarea id="comment" required></textarea>
+        <br>
+        <br>
+        <button type="submit" id="submitBtn">Выложить</button>
+    </form>
+    <div id="currentHw"></div>
+    <button id="logout">Выйти</button>
+
+    <script src="cookies.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, collection, query, where, getDocs, updateDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAobCt_Y_6xu2k1WVdJp_uGE7RyByGo0cQ",
+            authDomain: "web-education-10d3e.firebaseapp.com",
+            projectId: "web-education-10d3e",
+            storageBucket: "web-education-10d3e.firebasestorage.app",
+            messagingSenderId: "794388783858",
+            appId: "1:794388783858:web:98f84ec7f05583fdb5266b",
+            measurementId: "G-HFFQ7NEX8M"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const role = getCookie('role');
+        const userId = getCookie('userId');
+        if (role !== 'teacher' || !userId) {
+            window.location.href = 'index.html';
+        }
+
+        const teacherDoc = await getDoc(doc(db, 'teachers', userId));
+        const teacherData = teacherDoc.data();
+        const group = teacherData.group;
+
+        const pupilsQuery = query(collection(db, 'pupils'), where('group', '==', group));
+        const pupilsSnap = await getDocs(pupilsQuery);
+        const pupils = pupilsSnap.docs.map(d => ({id: d.id, ...d.data()}));
+        pupils.sort((a, b) => a.surname.localeCompare(b.surname));
+
+        const tbody = document.querySelector('#pupilsTable tbody');
+        pupils.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${p.name}</td>
+                <td>${p.surname}</td>
+                <td contenteditable="true" data-field="age" data-id="${p.id}">${p.age}</td>
+                <td contenteditable="true" data-field="points" data-id="${p.id}">${p.points}</td>
+                <td contenteditable="true" data-field="notdonehws" data-id="${p.id}">${p.notdonehws}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        tbody.addEventListener('blur', async (e) => {
+            if (e.target.contentEditable) {
+                const field = e.target.dataset.field;
+                const id = e.target.dataset.id;
+                const value = parseInt(e.target.textContent);
+                await updateDoc(doc(db, 'pupils', id), {[field]: value});
+            }
+        }, true);
+
+        const hwForm = document.getElementById('hwForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const linkInput = document.getElementById('link');
+        const commentInput = document.getElementById('comment');
+
+        hwForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const link = linkInput.value;
+            const comment = commentInput.value;
+            await setDoc(doc(db, 'homeworks', `group${group}`), {link, comment});
+            loadHw();
+        });
+
+        async function loadHw() {
+            const hwDoc = await getDoc(doc(db, 'homeworks', `group${group}`));
+            const hwDiv = document.getElementById('currentHw');
+            if (hwDoc.exists()) {
+                const hwData = hwDoc.data();
+                hwDiv.innerHTML = `
+                    <p>Ссылка: <a href="${hwData.link}">${hwData.link}</a></p>
+                    <p>Комментарий: ${hwData.comment}</p>
+                `;
+                linkInput.value = hwData.link;
+                commentInput.value = hwData.comment;
+                submitBtn.textContent = 'Обновить';
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Удалить';
+                deleteBtn.addEventListener('click', async () => {
+                    await deleteDoc(doc(db, 'homeworks', `group${group}`));
+                    loadHw();
+                });
+                hwDiv.appendChild(deleteBtn);
+            } else {
+                hwDiv.innerHTML = '<p>Нет домашнего задания</p>';
+                linkInput.value = '';
+                commentInput.value = '';
+                submitBtn.textContent = 'Выложить';
+            }
+        }
+        loadHw();
+
+        document.getElementById('logout').addEventListener('click', () => {
+            deleteCookie('role');
+            deleteCookie('userId');
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

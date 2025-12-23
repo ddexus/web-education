@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Профиль ученика</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Профиль ученика</h1>
+    <div id="info"></div>
+    <h2>Домашнее задание</h2>
+    <div id="hw"></div>
+    <button id="logout">Выйти</button>
+
+    <script src="cookies.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAobCt_Y_6xu2k1WVdJp_uGE7RyByGo0cQ",
+            authDomain: "web-education-10d3e.firebaseapp.com",
+            projectId: "web-education-10d3e",
+            storageBucket: "web-education-10d3e.firebasestorage.app",
+            messagingSenderId: "794388783858",
+            appId: "1:794388783858:web:98f84ec7f05583fdb5266b",
+            measurementId: "G-HFFQ7NEX8M"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const role = getCookie('role');
+        const userId = getCookie('userId');
+        if (role !== 'pupil' || !userId) {
+            window.location.href = 'index.html';
+        }
+
+        const pupilDoc = await getDoc(doc(db, 'pupils', userId));
+        const data = pupilDoc.data();
+        const infoDiv = document.getElementById('info');
+        infoDiv.innerHTML = `
+            <p>Баллы: ${data.points}</p>
+            <p>Невыполненные ДЗ: ${data.notdonehws}</p>
+            <p>Группа: ${data.group}</p>
+        `;
+
+        const teacherQuery = query(collection(db, 'teachers'), where('group', '==', data.group));
+        const teacherSnap = await getDocs(teacherQuery);
+        if (!teacherSnap.empty) {
+            const teacherData = teacherSnap.docs[0].data();
+            infoDiv.innerHTML += `<p>Преподаватель: ${teacherData.surname} ${teacherData.name}</p>`;
+        }
+
+        const hwDoc = await getDoc(doc(db, 'homeworks', `group${data.group}`));
+        const hwDiv = document.getElementById('hw');
+        if (hwDoc.exists()) {
+            const hwData = hwDoc.data();
+            hwDiv.innerHTML = `
+                <p>Ссылка: <a href="${hwData.link}">${hwData.link}</a></p>
+                <p>Комментарий: ${hwData.comment}</p>
+            `;
+        } else {
+            hwDiv.innerHTML = '<p>Нет домашнего задания</p>';
+        }
+
+        document.getElementById('logout').addEventListener('click', () => {
+            deleteCookie('role');
+            deleteCookie('userId');
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

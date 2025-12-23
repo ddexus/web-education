@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Профиль администратора</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Профиль администратора</h1>
+
+    <h2>Создать нового ученика</h2>
+    <form id="createPupilForm">
+        <label>Логин:</label><input type="text" id="pLogin" required><br>
+        <label>Пароль:</label><input type="password" id="pPassword" required><br>
+        <label>Имя:</label><input type="text" id="pName" required><br>
+        <label>Фамилия:</label><input type="text" id="pSurname" required><br>
+        <label>Возраст:</label><input type="number" id="pAge" required><br>
+        <label>Группа:</label><input type="number" id="pGroup" required><br>
+        <label>Баллы:</label><input type="number" id="pPoints" value="0"><br>
+        <label>Невыполненные ДЗ:</label><input type="number" id="pNotdone" value="0"><br><br>
+        <button type="submit">Создать ученика</button>
+    </form>
+
+    <button type="button" class="toggle-form-btn" onclick="document.getElementById('createPupilForm').style.display = document.getElementById('createPupilForm').style.display === 'block' ? 'none' : 'block'">
+        Показать/скрыть форму создания ученика
+    </button>
+
+    <h2>Создать нового учителя</h2>
+    <form id="createTeacherForm">
+        <label>Логин:</label><input type="text" id="tLogin" required><br>
+        <label>Пароль:</label><input type="password" id="tPassword" required><br>
+        <label>Имя:</label><input type="text" id="tName" required><br>
+        <label>Фамилия:</label><input type="text" id="tSurname" required><br>
+        <label>Группа:</label><input type="number" id="tGroup" required><br><br>
+        <button type="submit">Создать учителя</button>
+    </form>
+
+    <button type="button" class="toggle-form-btn" onclick="document.getElementById('createTeacherForm').style.display = document.getElementById('createTeacherForm').style.display === 'block' ? 'none' : 'block'">
+        Показать/скрыть форму создания учителя
+    </button>
+
+    <h2>Все ученики</h2>
+    <table id="pupilsTable" class="admin" border="1">
+        <thead>
+            <tr>
+                <th>Группа</th>
+                <th>Фамилия</th>
+                <th>Имя</th>
+                <th>Возраст</th>
+                <th>Баллы</th>
+                <th>Невыполненные ДЗ</th>
+                <th>Логин</th>
+                <th>Пароль</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Все учителя</h2>
+    <table id="teachersTable" class="admin" border="1">
+        <thead>
+            <tr>
+                <th>Группа</th>
+                <th>Фамилия</th>
+                <th>Имя</th>
+                <th>Логин</th>
+                <th>Пароль</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <button id="logout">Выйти</button>
+
+    <script src="cookies.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, updateDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAobCt_Y_6xu2k1WVdJp_uGE7RyByGo0cQ",
+            authDomain: "web-education-10d3e.firebaseapp.com",
+            projectId: "web-education-10d3e",
+            storageBucket: "web-education-10d3e.firebasestorage.app",
+            messagingSenderId: "794388783858",
+            appId: "1:794388783858:web:98f84ec7f05583fdb5266b",
+            measurementId: "G-HFFQ7NEX8M"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const role = getCookie('role');
+        const userId = getCookie('userId');
+        if (role !== 'admin' || !userId) {
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('createPupilForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                login: document.getElementById('pLogin').value,
+                password: document.getElementById('pPassword').value,
+                name: document.getElementById('pName').value,
+                surname: document.getElementById('pSurname').value,
+                age: parseInt(document.getElementById('pAge').value),
+                group: parseInt(document.getElementById('pGroup').value),
+                points: parseInt(document.getElementById('pPoints').value || 0),
+                notdonehws: parseInt(document.getElementById('pNotdone').value || 0)
+            };
+            const newId = doc(collection(db, 'pupils')).id;
+            await setDoc(doc(db, 'pupils', newId), data);
+            alert('Ученик создан');
+            e.target.reset();
+            loadTables();
+        });
+
+        document.getElementById('createTeacherForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                login: document.getElementById('tLogin').value,
+                password: document.getElementById('tPassword').value,
+                name: document.getElementById('tName').value,
+                surname: document.getElementById('tSurname').value,
+                group: parseInt(document.getElementById('tGroup').value)
+            };
+            const newId = doc(collection(db, 'teachers')).id;
+            await setDoc(doc(db, 'teachers', newId), data);
+            alert('Учитель создан');
+            e.target.reset();
+            loadTables();
+        });
+
+        async function loadTables() {
+            let pupilsSnap = await getDocs(collection(db, 'pupils'));
+            let pupils = pupilsSnap.docs.map(d => ({id: d.id, ...d.data()}));
+            pupils.sort((a, b) => a.group - b.group || a.surname.localeCompare(b.surname));
+
+            const pupilsTbody = document.querySelector('#pupilsTable tbody');
+            pupilsTbody.innerHTML = '';
+            pupils.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td contenteditable="true" data-field="group" data-id="${p.id}">${p.group}</td>
+                    <td contenteditable="true" data-field="surname" data-id="${p.id}">${p.surname}</td>
+                    <td contenteditable="true" data-field="name" data-id="${p.id}">${p.name}</td>
+                    <td contenteditable="true" data-field="age" data-id="${p.id}">${p.age}</td>
+                    <td contenteditable="true" data-field="points" data-id="${p.id}">${p.points}</td>
+                    <td contenteditable="true" data-field="notdonehws" data-id="${p.id}">${p.notdonehws}</td>
+                    <td contenteditable="true" data-field="login" data-id="${p.id}">${p.login}</td>
+                    <td contenteditable="true" data-field="password" data-id="${p.id}">${p.password}</td>
+                `;
+                pupilsTbody.appendChild(tr);
+            });
+
+            let teachersSnap = await getDocs(collection(db, 'teachers'));
+            let teachers = teachersSnap.docs.map(d => ({id: d.id, ...d.data()}));
+            teachers.sort((a, b) => a.group - b.group || a.surname.localeCompare(b.surname));
+
+            const teachersTbody = document.querySelector('#teachersTable tbody');
+            teachersTbody.innerHTML = '';
+            teachers.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td contenteditable="true" data-field="group" data-id="${t.id}">${t.group}</td>
+                    <td contenteditable="true" data-field="surname" data-id="${t.id}">${t.surname}</td>
+                    <td contenteditable="true" data-field="name" data-id="${t.id}">${t.name}</td>
+                    <td contenteditable="true" data-field="login" data-id="${t.id}">${t.login}</td>
+                    <td contenteditable="true" data-field="password" data-id="${t.id}">${t.password}</td>
+                `;
+                teachersTbody.appendChild(tr);
+            });
+        }
+
+        document.body.addEventListener('blur', async (e) => {
+            if (e.target.contentEditable === 'true') {
+                const field = e.target.dataset.field;
+                const id = e.target.dataset.id;
+                let value = e.target.textContent.trim();
+                const tableId = e.target.closest('table').id;
+                const collectionName = tableId === 'pupilsTable' ? 'pupils' : 'teachers';
+
+                if (['age', 'points', 'notdonehws', 'group'].includes(field)) {
+                    value = parseInt(value) || 0;
+                }
+
+                await updateDoc(doc(db, collectionName, id), { [field]: value });
+            }
+        }, true);
+
+        document.getElementById('logout').addEventListener('click', () => {
+            deleteCookie('role');
+            deleteCookie('userId');
+            window.location.href = 'index.html';
+        });
+
+        loadTables();
+    </script>
+</body>
+</html>
