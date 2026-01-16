@@ -1,140 +1,252 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>Профиль учителя</title>
-    <link rel="stylesheet" href="./style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Профиль учителя</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-    <h1>Профиль учителя</h1>
-    <h2>Ученики группы</h2>
-    <table id="pupilsTable" class="pupils-table" border="1">
-        <thead>
+
+<div id="page-loader">
+  <div class="loader"></div>
+</div>
+
+<main class="teacher-page">
+  <div class="profile-card">
+    <div class="card-header">
+      <h1>Профиль учителя</h1>
+    </div>
+
+    <div class="card-content">
+      <!-- Список учеников -->
+      <h2>Ученики группы</h2>
+      <div class="table-wrapper">
+        <table id="pupilsTable" border="1">
+          <thead>
             <tr>
-                <th>Имя</th>
-                <th>Фамилия</th>
-                <th>Возраст</th>
-                <th>Баллы</th>
-                <th>Невыполненные ДЗ</th>
+              <th>Имя</th>
+              <th>Фамилия</th>
+              <th>Возраст</th>
+              <th>Баллы</th>
+              <th>Невыполненные ДЗ</th>
             </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-    <h2>Домашнее задание для группы</h2>
-    <form id="hwForm">
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Форма добавления/изменения домашнего задания -->
+      <h2>Домашнее задание для группы</h2>
+      <form id="hwForm">
         <label for="link">Ссылка на ДЗ:</label>
         <input type="text" id="link" required>
-        <br>
+
         <label for="comment">Комментарий:</label>
-        <textarea id="comment" required></textarea>
-        <br>
-        <br>
+        <textarea id="comment" rows="4" required></textarea>
+
         <button type="submit" id="submitBtn">Выложить</button>
-    </form>
-    <div id="currentHw"></div>
-    <button id="logout">Выйти</button>
+      </form>
 
-    <script src="./cookies.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, query, where, getDocs, updateDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+      <div id="currentHw"></div>
+    </div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAobCt_Y_6xu2k1WVdJp_uGE7RyByGo0cQ",
-            authDomain: "web-education-10d3e.firebaseapp.com",
-            projectId: "web-education-10d3e",
-            storageBucket: "web-education-10d3e.firebasestorage.app",
-            messagingSenderId: "794388783858",
-            appId: "1:794388783858:web:98f84ec7f05583fdb5266b",
-            measurementId: "G-HFFQ7NEX8M"
+    <div class="card-footer">
+      <button id="logout">Выйти</button>
+    </div>
+  </div>
+</main>
+
+<script src="./cookies.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  setDoc,
+  deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAobCt_Y_6xu2k1WVdJp_uGE7RyByGo0cQ",
+  authDomain: "web-education-10d3e.firebaseapp.com",
+  projectId: "web-education-10d3e",
+  storageBucket: "web-education-10d3e.firebasestorage.app",
+  messagingSenderId: "794388783858",
+  appId: "1:794388783858:web:98f84ec7f05583fdb5266b",
+  measurementId: "G-HFFQ7NEX8M"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ────────────────────────────────────────────────
+//  Показ/скрытие лоадера
+// ────────────────────────────────────────────────
+function hideLoader() {
+  const loader = document.getElementById('page-loader');
+  if (loader) loader.classList.add('hidden');
+}
+
+// ────────────────────────────────────────────────
+//  Проверка авторизации
+// ────────────────────────────────────────────────
+const role = getCookie('role');
+const userId = getCookie('userId');
+
+if (role !== 'teacher' || !userId) {
+  window.location.href = './index.html';
+}
+
+// ────────────────────────────────────────────────
+//  Основная логика
+// ────────────────────────────────────────────────
+(async function initTeacherPage() {
+  try {
+    // 1. Получаем данные учителя
+    const teacherDoc = await getDoc(doc(db, 'teachers', userId));
+    if (!teacherDoc.exists()) {
+      alert("Данные учителя не найдены");
+      hideLoader();
+      return;
+    }
+
+    const teacherData = teacherDoc.data();
+    const group = teacherData.group;
+
+    // 2. Загружаем учеников группы
+    const pupilsQuery = query(
+      collection(db, 'pupils'),
+      where('group', '==', group)
+    );
+    const pupilsSnap = await getDocs(pupilsQuery);
+    const pupils = pupilsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    pupils.sort((a, b) => a.surname.localeCompare(b.surname));
+
+    const tbody = document.querySelector('#pupilsTable tbody');
+    tbody.innerHTML = '';
+
+    pupils.forEach(pupil => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${pupil.name || ''}</td>
+        <td>${pupil.surname || ''}</td>
+        <td contenteditable="true" data-field="age"     data-id="${pupil.id}">${pupil.age ?? ''}</td>
+        <td contenteditable="true" data-field="points"   data-id="${pupil.id}">${pupil.points ?? 0}</td>
+        <td contenteditable="true" data-field="notdonehws" data-id="${pupil.id}">${pupil.notdonehws ?? 0}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Сохранение изменений при потере фокуса
+    tbody.addEventListener('blur', async (e) => {
+      if (e.target.contentEditable === 'true') {
+        const field = e.target.dataset.field;
+        const id = e.target.dataset.id;
+        let value = e.target.textContent.trim();
+
+        if (['age', 'points', 'notdonehws'].includes(field)) {
+          value = parseInt(value) || 0;
+        }
+
+        try {
+          await updateDoc(doc(db, 'pupils', id), { [field]: value });
+        } catch (err) {
+          console.error("Ошибка обновления поля:", err);
+        }
+      }
+    }, true);
+
+    // 3. Работа с домашним заданием
+    const hwForm = document.getElementById('hwForm');
+    const linkInput = document.getElementById('link');
+    const commentInput = document.getElementById('comment');
+    const submitBtn = document.getElementById('submitBtn');
+    const currentHw = document.getElementById('currentHw');
+
+    async function loadCurrentHw() {
+      const hwDoc = await getDoc(doc(db, 'homeworks', `group${group}`));
+
+      if (hwDoc.exists()) {
+        const hwData = hwDoc.data();
+        currentHw.innerHTML = `
+          <p><strong>Ссылка:</strong> <a href="${hwData.link || '#'}" target="_blank">${hwData.link || '(пусто)'}</a></p>
+          <p><strong>Комментарий:</strong> ${hwData.comment || '—'}</p>
+        `;
+
+        linkInput.value = hwData.link || '';
+        commentInput.value = hwData.comment || '';
+        submitBtn.textContent = 'Обновить';
+
+        // Кнопка удаления
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Удалить ДЗ';
+        delBtn.style.marginTop = '1rem';
+        delBtn.onclick = async () => {
+          if (confirm("Удалить домашнее задание?")) {
+            await deleteDoc(doc(db, 'homeworks', `group${group}`));
+            loadCurrentHw();
+          }
         };
+        currentHw.appendChild(delBtn);
+      } else {
+        currentHw.innerHTML = '<p>Домашнее задание пока не задано</p>';
+        linkInput.value = '';
+        commentInput.value = '';
+        submitBtn.textContent = 'Выложить';
+      }
+    }
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    // Отправка формы
+    hwForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-        const role = getCookie('role');
-        const userId = getCookie('userId');
-        if (role !== 'teacher' || !userId) {
-            window.location.href = './index.html';
-        }
+      const link = linkInput.value.trim();
+      const comment = commentInput.value.trim();
 
-        const teacherDoc = await getDoc(doc(db, 'teachers', userId));
-        const teacherData = teacherDoc.data();
-        const group = teacherData.group;
+      if (!link) {
+        alert("Ссылка на задание обязательна!");
+        return;
+      }
 
-        const pupilsQuery = query(collection(db, 'pupils'), where('group', '==', group));
-        const pupilsSnap = await getDocs(pupilsQuery);
-        const pupils = pupilsSnap.docs.map(d => ({id: d.id, ...d.data()}));
-        pupils.sort((a, b) => a.surname.localeCompare(b.surname));
-
-        const tbody = document.querySelector('#pupilsTable tbody');
-        pupils.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${p.name}</td>
-                <td>${p.surname}</td>
-                <td contenteditable="true" data-field="age" data-id="${p.id}">${p.age}</td>
-                <td contenteditable="true" data-field="points" data-id="${p.id}">${p.points}</td>
-                <td contenteditable="true" data-field="notdonehws" data-id="${p.id}">${p.notdonehws}</td>
-            `;
-            tbody.appendChild(tr);
+      try {
+        await setDoc(doc(db, 'homeworks', `group${group}`), {
+          link,
+          comment
         });
+        alert("Задание успешно обновлено");
+        loadCurrentHw();
+      } catch (err) {
+        console.error(err);
+        alert("Ошибка при сохранении задания");
+      }
+    });
 
-        tbody.addEventListener('blur', async (e) => {
-            if (e.target.contentEditable) {
-                const field = e.target.dataset.field;
-                const id = e.target.dataset.id;
-                const value = parseInt(e.target.textContent);
-                await updateDoc(doc(db, 'pupils', id), {[field]: value});
-            }
-        }, true);
+    // Первичная загрузка ДЗ
+    await loadCurrentHw();
 
-        const hwForm = document.getElementById('hwForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const linkInput = document.getElementById('link');
-        const commentInput = document.getElementById('comment');
+  } catch (error) {
+    console.error("Критическая ошибка загрузки страницы учителя:", error);
+    alert("Не удалось загрузить данные. Проверьте подключение.");
+  } finally {
+    hideLoader();
+  }
+})();
 
-        hwForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const link = linkInput.value;
-            const comment = commentInput.value;
-            await setDoc(doc(db, 'homeworks', `group${group}`), {link, comment});
-            loadHw();
-        });
+// Выход
+document.getElementById('logout').addEventListener('click', () => {
+  deleteCookie('role');
+  deleteCookie('userId');
+  window.location.href = './index.html';
+});
+</script>
 
-        async function loadHw() {
-            const hwDoc = await getDoc(doc(db, 'homeworks', `group${group}`));
-            const hwDiv = document.getElementById('currentHw');
-            if (hwDoc.exists()) {
-                const hwData = hwDoc.data();
-                hwDiv.innerHTML = `
-                    <p>Ссылка: <a href="${hwData.link}">${hwData.link}</a></p>
-                    <p>Комментарий: ${hwData.comment}</p>
-                `;
-                linkInput.value = hwData.link;
-                commentInput.value = hwData.comment;
-                submitBtn.textContent = 'Обновить';
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Удалить';
-                deleteBtn.addEventListener('click', async () => {
-                    await deleteDoc(doc(db, 'homeworks', `group${group}`));
-                    loadHw();
-                });
-                hwDiv.appendChild(deleteBtn);
-            } else {
-                hwDiv.innerHTML = '<p>Нет домашнего задания</p>';
-                linkInput.value = '';
-                commentInput.value = '';
-                submitBtn.textContent = 'Выложить';
-            }
-        }
-        loadHw();
-
-        document.getElementById('logout').addEventListener('click', () => {
-            deleteCookie('role');
-            deleteCookie('userId');
-            window.location.href = './index.html';
-        });
-    </script>
 </body>
 </html>

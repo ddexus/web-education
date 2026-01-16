@@ -1,74 +1,139 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>Профиль ученика</title>
-    <link rel="stylesheet" href="./style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Профиль ученика</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <h1>Профиль ученика</h1>
-    <div id="info"></div>
-    <h2>Домашнее задание</h2>
-    <div id="hw"></div>
-    <button id="logout">Выйти</button>
 
-    <script src="./cookies.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+<div id="page-loader">
+  <div class="loader"></div>
+</div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAobCt_Y_6xu2k1WVdJp_uGE7RyByGo0cQ",
-            authDomain: "web-education-10d3e.firebaseapp.com",
-            projectId: "web-education-10d3e",
-            storageBucket: "web-education-10d3e.firebasestorage.app",
-            messagingSenderId: "794388783858",
-            appId: "1:794388783858:web:98f84ec7f05583fdb5266b",
-            measurementId: "G-HFFQ7NEX8M"
-        };
+<main class="pupil-page">
+  <div class="profile-card">
+    <div class="card-header">
+      <h1>Профиль ученика</h1>
+    </div>
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    <div class="card-content">
+      <!-- Блок информации -->
+      <div class="info-section">
+        <h2>Информация</h2>
+        <div id="info" class="info-grid"></div>
+      </div>
 
-        const role = getCookie('role');
-        const userId = getCookie('userId');
-        if (role !== 'pupil' || !userId) {
-            window.location.href = 'index.html';
-        }
+      <!-- Блок домашнего задания -->
+      <div class="homework-section">
+        <h2>Домашнее задание</h2>
+        <div id="hw" class="homework-block"></div>
+      </div>
+    </div>
 
-        const pupilDoc = await getDoc(doc(db, 'pupils', userId));
-        const data = pupilDoc.data();
-        const infoDiv = document.getElementById('info');
-        infoDiv.innerHTML = `
-            <p>Баллы: ${data.points}</p>
-            <p>Невыполненные ДЗ: ${data.notdonehws}</p>
-            <p>Группа: ${data.group}</p>
-        `;
+    <div class="card-footer">
+      <button id="logout">Выйти</button>
+    </div>
+  </div>
+</main>
 
-        const teacherQuery = query(collection(db, 'teachers'), where('group', '==', data.group));
-        const teacherSnap = await getDocs(teacherQuery);
-        if (!teacherSnap.empty) {
-            const teacherData = teacherSnap.docs[0].data();
-            infoDiv.innerHTML += `<p>Преподаватель: ${teacherData.surname} ${teacherData.name}</p>`;
-        }
+<script src="./cookies.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const hwDoc = await getDoc(doc(db, 'homeworks', `group${data.group}`));
-        const hwDiv = document.getElementById('hw');
-        if (hwDoc.exists()) {
-            const hwData = hwDoc.data();
-            hwDiv.innerHTML = `
-                <p>Ссылка: <a href="${hwData.link}">${hwData.link}</a></p>
-                <p>Комментарий: ${hwData.comment}</p>
-            `;
-        } else {
-            hwDiv.innerHTML = '<p>Нет домашнего задания</p>';
-        }
+const firebaseConfig = {
+  apiKey: "AIzaSyAobCt_Y_6xu2k1WVdJp_uGE7RyByGo0cQ",
+  authDomain: "web-education-10d3e.firebaseapp.com",
+  projectId: "web-education-10d3e",
+  storageBucket: "web-education-10d3e.firebasestorage.app",
+  messagingSenderId: "794388783858",
+  appId: "1:794388783858:web:98f84ec7f05583fdb5266b",
+  measurementId: "G-HFFQ7NEX8M"
+};
 
-        document.getElementById('logout').addEventListener('click', () => {
-            deleteCookie('role');
-            deleteCookie('userId');
-            window.location.href = './index.html';
-        });
-    </script>
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+function hideLoader() {
+  const loader = document.getElementById('page-loader');
+  if (loader) loader.classList.add('hidden');
+}
+
+const role = getCookie('role');
+const userId = getCookie('userId');
+
+if (role !== 'pupil' || !userId) {
+  window.location.href = 'index.html';
+}
+
+(async () => {
+  try {
+    const pupilDoc = await getDoc(doc(db, 'pupils', userId));
+    if (!pupilDoc.exists()) {
+      document.getElementById('info').innerHTML = '<p>Профиль не найден</p>';
+      hideLoader();
+      return;
+    }
+
+    const data = pupilDoc.data();
+
+    // Информация — блоки внутри блока
+    const infoDiv = document.getElementById('info');
+    let infoHtml = `
+      <p><strong>Баллы:</strong> ${data.points ?? 0}</p>
+      <p><strong>Невыполненные ДЗ:</strong> ${data.notdonehws ?? 0}</p>
+      <p><strong>Группа:</strong> ${data.group ?? '—'}</p>
+    `;
+
+    if (data.group) {
+      const q = query(collection(db, 'teachers'), where('group', '==', data.group));
+      const teacherSnap = await getDocs(q);
+      if (!teacherSnap.empty) {
+        const teacher = teacherSnap.docs[0].data();
+        infoHtml += `<p><strong>Преподаватель:</strong> ${teacher.surname || ''} ${teacher.name || ''}</p>`;
+      }
+    }
+
+    infoDiv.innerHTML = infoHtml;
+
+    // Домашнее задание — отдельный блок
+    const hwDoc = await getDoc(doc(db, 'homeworks', `group${data.group}`));
+    const hwDiv = document.getElementById('hw');
+
+    if (hwDoc.exists()) {
+      const hwData = hwDoc.data();
+      hwDiv.innerHTML = `
+        <p><strong>Ссылка:</strong> <a href="${hwData.link || '#'}" target="_blank">${hwData.link || '—'}</a></p>
+        <p><strong>Комментарий:</strong> ${hwData.comment || '—'}</p>
+      `;
+    } else {
+      hwDiv.innerHTML = '<p class="no-hw">Нет домашнего задания</p>';
+    }
+
+  } catch (error) {
+    console.error("Ошибка:", error);
+    document.getElementById('info').innerHTML = '<p style="color:#ff9999">Ошибка загрузки</p>';
+    document.getElementById('hw').innerHTML = '<p style="color:#aaa">Не удалось загрузить</p>';
+  } finally {
+    hideLoader();
+  }
+})();
+
+document.getElementById('logout').addEventListener('click', () => {
+  deleteCookie('role');
+  deleteCookie('userId');
+  window.location.href = './index.html';
+});
+</script>
 </body>
 </html>
