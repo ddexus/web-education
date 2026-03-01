@@ -1,2 +1,2 @@
 # web-education
-school project.
+school project 10 class.
