@@ -1,2 +1,2 @@
 # web-education
-school project 10 class.
+school project 10th grade.
